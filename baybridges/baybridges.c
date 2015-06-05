@@ -61,12 +61,32 @@
 #define ERROR_WHILE_OPENING_FILE 1
 #define MAX_BUFFER_LEN 256
 
+#define NUM_ENTRIES 1000 //FIX: gotta change this later on
+
 typedef int bool;
 #define true 1
 #define false 0
 
-double passed_list[10][3];
 int counter = 0;
+
+/*
+	Bridge Structure
+	----------------
+
+	1. Bridge Line Properties (double array): corresponds to the properties of line that the bridge makes. stored as [Line Id, slope, y-intercept]
+	2. Bridges Crossed (integer array): keeps the ID of all bridges that it crosses
+	3. Number of Bridges Crossed (integer): number of bridges it crosses *** we can get derive this property from property 2. as well. 
+*/
+struct bridge
+{
+	/* data */
+	double bridge_line_properties[3];
+	int bridges_crossed[NUM_ENTRIES]; //Worst case: one bridge crosses all other bridges
+	int number_bridge_crossed;
+};
+
+//Array of struct bridge
+struct bridge bridges[NUM_ENTRIES+1];
 
 //Function Definitions************************************************************************************************************************
 
@@ -86,6 +106,11 @@ double get_y_intercept(double* points, double slope);
 	Printer
 */
 void print();
+
+/*
+	Max Finder
+*/
+int max_position(int* array);
 
 
 //MODULES
@@ -168,31 +193,69 @@ int main(int argc, char* argv[])
 			double lat_long_array [4] = {0, 0, 0, 0};
 			double line_properties [3] = {0, 0, 0};
 			line_id = parsing_module(string_line, lat_long_array);
+
+
 			if(counter == 0)
 			{
 				equation_generator(lat_long_array, line_properties, line_id);
 				list_update(line_id, lat_long_array);
+				counter++;
 			}
 			else
 			{
 				int i;
-				int flag = 0;
-				for(i = 0; i <= counter; i++)
+				list_update(line_id, lat_long_array);
+				for(i = 1; i <= counter; i++)
 				{
-					if (intersection_test_module(passed_list[i], lat_long_array, line_id) == true)
+					if (intersection_test_module(bridges[i].bridge_line_properties, lat_long_array, line_id) == true)
 					{
-						flag = 1;
+						
+						bridges[counter+1].bridges_crossed[bridges[counter+1].number_bridge_crossed] = bridges[i].bridge_line_properties[0];
+						bridges[counter+1].number_bridge_crossed++;
+
+						bridges[i].bridges_crossed[bridges[i].number_bridge_crossed] = line_id;
+						bridges[i].number_bridge_crossed++;
 					}
+
 				}
-				if(flag == 0)
-					list_update(line_id, lat_long_array);
+				counter++;
+
 			}
 			memset(string_line, 0, MAX_BUFFER_LEN);
 		}
-		print();
+		//print();
 
 	}
 	fclose(pfile);
+
+
+	int temp_array[counter+1];
+	int i;
+	temp_array[0] = -1;
+
+	for(i = 1; i <= counter; i++)
+		temp_array[i] = bridges[i].number_bridge_crossed;
+
+	int max_pos;
+	int max_cross;
+	while((max_cross = bridges[max_pos = max_position(temp_array)].number_bridge_crossed) != 0)
+	{
+		//printf("max_pos %d\n", max_pos);
+		temp_array[max_pos] = -1;
+		for(i = 0; i < max_cross; i++)
+		{
+			temp_array[bridges[max_pos].bridges_crossed[i]]--;
+		}
+	}
+
+	for(i = 0; i <= counter; i++)
+	{
+		if(temp_array[i] >= 0)
+			printf("%d\n", i);
+	}
+
+
+
 }
 
 //HELPER FUNCTIONS===============================================================================================================
@@ -230,10 +293,32 @@ double get_y_intercept(double* points, double slope)
 void print()
 {
 	int i;
-	for(i = 0; i < counter; i++)
+	int j;
+	for(i = 1; i <= counter; i++)
 	{
-		printf("%d\n", (int)passed_list[i][0]);
+		printf("%d ", (int)bridges[i].bridge_line_properties[0]);
+		for(j = 0; j < bridges[i].number_bridge_crossed; j++)
+		{
+			printf("%d, ", bridges[i].bridges_crossed[j]);
+		}
+		printf("\n");
 	}
+}
+
+
+/*
+	Max Finder
+*/
+int max_position(int* array)
+{
+	int max_pos = 1;
+	int i;
+	for (i = 2; i <= counter; ++i)
+	{
+		if(array[i] > array[max_pos])
+			max_pos = i;
+	}
+	return max_pos;
 }
 
 
@@ -364,10 +449,14 @@ bool intersection_test_module(double* reference_line, double* new_points, int ne
 */
 void list_update(int line_id, double* new_points)
 {
-	//printf("%d\n",line_id);
-	passed_list[counter][0] = line_id;
-	passed_list[counter][1] = get_slope(new_points);
-	passed_list[counter][2] = get_y_intercept(new_points, passed_list[counter][1]);
-	counter++;
+	double slope = get_slope(new_points);
+
+	//bridge line properties update
+	bridges[counter+1].bridge_line_properties[0] = line_id;
+	bridges[counter+1].bridge_line_properties[1] = slope;
+	bridges[counter+1].bridge_line_properties[2] = get_y_intercept(new_points, slope);
+
+	//number of bridges crossed update
+	bridges[counter+1].number_bridge_crossed = 0;
 }
 

@@ -85,9 +85,6 @@ struct bridge
 	int number_bridge_crossed;
 };
 
-//Array of struct bridge
-struct bridge bridges[NUM_ENTRIES+1];
-
 //Function Definitions************************************************************************************************************************
 
 //HELPER FUNCTIONS
@@ -105,7 +102,7 @@ double get_y_intercept(double* points, double slope);
 /*
 	Printer
 */
-void print();
+void print(struct bridge* _bridges);
 
 /*
 	Max Finder
@@ -166,7 +163,7 @@ bool intersection_test_module(double* reference_line, double* new_points, int ne
 	@param: line_id of the new line
 	@param: new_points for a new line that passed the test
 */
-void list_update(int line_id, double* new_points);
+void list_update(int line_id, double* new_points, struct bridge* _bridges);
 
 //Function Implementations******************************************************************************************************************
 
@@ -177,9 +174,20 @@ int main(int argc, char* argv[])
 {
 	FILE* pfile;
 	pfile = fopen(argv[1], "r");
+        
+        printf("Enter a number: ");
+        int test_input;
+        scanf("%d",&test_input);
 
 	char string_line [MAX_BUFFER_LEN];
 	memset(string_line, 0, MAX_BUFFER_LEN);
+
+	struct bridge* bridges = (struct bridge* )calloc((NUM_ENTRIES+1), sizeof(struct bridge));
+	if(bridges == NULL)
+	{
+		printf("Error allocating memory\n");
+		abort();
+	}
 
 	if(pfile == NULL)
 	{
@@ -192,33 +200,46 @@ int main(int argc, char* argv[])
 			int line_id = 0;
 			double lat_long_array [4] = {0, 0, 0, 0};
 			double line_properties [3] = {0, 0, 0};
+			//printf("%s\n", string_line);
 			line_id = parsing_module(string_line, lat_long_array);
 
 
 			if(counter == 0)
 			{
 				equation_generator(lat_long_array, line_properties, line_id);
-				list_update(line_id, lat_long_array);
+				list_update(line_id, lat_long_array, bridges);
 				counter++;
 			}
 			else
 			{
-				int i;
-				list_update(line_id, lat_long_array);
-				for(i = 1; i <= counter; i++)
+				if(counter == NUM_ENTRIES)
 				{
-					if (intersection_test_module(bridges[i].bridge_line_properties, lat_long_array, line_id) == true)
+					if(realloc(bridges, sizeof(struct bridge)) == NULL)
 					{
-						
-						bridges[counter+1].bridges_crossed[bridges[counter+1].number_bridge_crossed] = bridges[i].bridge_line_properties[0];
-						bridges[counter+1].number_bridge_crossed++;
-
-						bridges[i].bridges_crossed[bridges[i].number_bridge_crossed] = line_id;
-						bridges[i].number_bridge_crossed++;
+						printf("Error reallocating memories\n");
+						abort();
 					}
+				}
+				else
+				{
+					int i;
+					list_update(line_id, lat_long_array, bridges);
+					for(i = 1; i <= counter; i++)
+					{
+						if (intersection_test_module(bridges[i].bridge_line_properties, lat_long_array, line_id) == true)
+						{
+							
+							bridges[counter+1].bridges_crossed[bridges[counter+1].number_bridge_crossed] = bridges[i].bridge_line_properties[0];
+							bridges[counter+1].number_bridge_crossed++;
+
+							bridges[i].bridges_crossed[bridges[i].number_bridge_crossed] = line_id;
+							bridges[i].number_bridge_crossed++;
+						}
+
+					}
+					counter++;
 
 				}
-				counter++;
 
 			}
 			memset(string_line, 0, MAX_BUFFER_LEN);
@@ -253,6 +274,8 @@ int main(int argc, char* argv[])
 		if(temp_array[i] >= 0)
 			printf("%d\n", i);
 	}
+
+	free(bridges);
 
 
 
@@ -290,16 +313,16 @@ double get_y_intercept(double* points, double slope)
 /*
 	Printer
 */
-void print()
+void print(struct bridge* _bridges)
 {
 	int i;
 	int j;
 	for(i = 1; i <= counter; i++)
 	{
-		printf("%d ", (int)bridges[i].bridge_line_properties[0]);
-		for(j = 0; j < bridges[i].number_bridge_crossed; j++)
+		printf("%d ", (int)_bridges[i].bridge_line_properties[0]);
+		for(j = 0; j < _bridges[i].number_bridge_crossed; j++)
 		{
-			printf("%d, ", bridges[i].bridges_crossed[j]);
+			printf("%d, ", _bridges[i].bridges_crossed[j]);
 		}
 		printf("\n");
 	}
@@ -447,16 +470,16 @@ bool intersection_test_module(double* reference_line, double* new_points, int ne
 /*
 	List update module
 */
-void list_update(int line_id, double* new_points)
+void list_update(int line_id, double* new_points, struct bridge* _bridges)
 {
 	double slope = get_slope(new_points);
 
 	//bridge line properties update
-	bridges[counter+1].bridge_line_properties[0] = line_id;
-	bridges[counter+1].bridge_line_properties[1] = slope;
-	bridges[counter+1].bridge_line_properties[2] = get_y_intercept(new_points, slope);
+	_bridges[counter+1].bridge_line_properties[0] = line_id;
+	_bridges[counter+1].bridge_line_properties[1] = slope;
+	_bridges[counter+1].bridge_line_properties[2] = get_y_intercept(new_points, slope);
 
 	//number of bridges crossed update
-	bridges[counter+1].number_bridge_crossed = 0;
+	_bridges[counter+1].number_bridge_crossed = 0;
 }
 
